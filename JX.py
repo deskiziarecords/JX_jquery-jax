@@ -34,7 +34,7 @@ class JX:
     name    — human-readable trace of the chain
     """
 
-    __slots__ = ("data", "node_fn", "name")
+    __slots__ = ("data", "node_fn", "name", "_is_vmapped", "_in_axes", "_out_axes", "_is_pmapped")
 
     def __init__(
         self,
@@ -45,16 +45,44 @@ class JX:
         self.data    = data
         self.node_fn = node_fn if node_fn is not None else (lambda x: x)
         self.name    = name
+        self._is_vmapped = False
+        self._in_axes = 0
+        self._out_axes = 0
+        self._is_pmapped = False
 
     # ── Internal ─────────────────────────────────────────────
 
     def _chain(self, fn: Callable, label: str) -> "JX":
         """Compose fn onto the existing pipeline — O(1), no list."""
         prev = self.node_fn
-        return JX(self.data, lambda x: fn(prev(x)), f"{self.name}→{label}")
+        if getattr(self, "_is_vmapped", False):
+            # If we are in 'vmap mode', we wrap the next function
+            new_fn = lambda x: vmap(fn, in_axes=self._in_axes, out_axes=self._out_axes)(prev(x))
+        elif getattr(self, "_is_pmapped", False):
+            # If we are in 'pmap mode', we wrap the next function
+            new_fn = lambda x: jax.pmap(fn)(prev(x))
+        else:
+            new_fn = lambda x: fn(prev(x))
+        
+        new_jx = JX(self.data, new_fn, f"{self.name}→{label}")
+        if getattr(self, "_is_vmapped", False):
+            new_jx._set_vmap(self._in_axes, self._out_axes)
+        if getattr(self, "_is_pmapped", False):
+            new_jx._set_pmap()
+        return new_jx
 
     def _label(self, fn: Callable, fallback: str) -> str:
         return getattr(fn, "__name__", fallback)
+
+    def _set_vmap(self, in_axes, out_axes):
+        self._is_vmapped = True
+        self._in_axes = in_axes
+        self._out_axes = out_axes
+        return self
+
+    def _set_pmap(self):
+        self._is_pmapped = True
+        return self
 
     # ── Make JX a first-class JAX function ───────────────────
 
@@ -78,6 +106,10 @@ class JX:
             raise ValueError("No data attached. Use jx(data) or call the pipeline directly.")
         return self.node_fn(self.data)
 
+    def value_of(self) -> Any:
+        """Alias for .value() to match README/Notebook."""
+        return self.value()
+
     def fuse(self) -> "JX":
         """
         JIT-compile the accumulated pipeline into a single XLA op.
@@ -89,14 +121,25 @@ class JX:
     def map(self, in_axes: int = 0, out_axes: int = 0) -> "JX":
         """
         Vectorize the pipeline over a batch dimension.
-        FIX: vmaps self.node_fn, not an identity.
+        Subsequent operations in the chain will be vmapped.
         """
-        fn = self.node_fn
         return JX(
             self.data,
-            lambda x: vmap(fn, in_axes=in_axes, out_axes=out_axes)(x),
+            self.node_fn,
             f"vmap({self.name})",
-        )
+        )._set_vmap(in_axes, out_axes)
+
+    def vmap(self, in_axes: int = 0, out_axes: int = 0) -> "JX":
+        """Alias for .map() to match README/Notebook."""
+        return self.map(in_axes=in_axes, out_axes=out_axes)
+
+    def pmap(self) -> "JX":
+        """Split work across multiple devices/GPUs."""
+        return JX(
+            self.data,
+            self.node_fn,
+            f"pmap({self.name})",
+        )._set_pmap()
 
     def scan(
         self,
@@ -298,7 +341,7 @@ class Linear:
         use_bias: bool = True,
         key=None,
     ):
-        key   = key or jax.random.PRNGKey(0)
+        key   = key if key is not None else jax.random.PRNGKey(0)
         scale = jnp.sqrt(2.0 / (in_features + out_features))
         self.W = jax.random.normal(key, (in_features, out_features)) * scale
         self.b = jnp.zeros(out_features) if use_bias else None
