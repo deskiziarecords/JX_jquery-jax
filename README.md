@@ -4,9 +4,10 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![JAX](https://img.shields.io/badge/JAX-0.4.0+-orange.svg)](https://github.com/google/jax)
 
-> Built because I needed simple chains without the ceremony. Yaks don't do boilerplate.
+
 
 ![YAKJAX mascot – geometric yak with JAX branding](https://github.com/deskiziarecords/YAKJAX/blob/main/YAKJAX.jpg)  
+> Built because I needed simple chains without the ceremony. Yaks don't do boilerplate.
 *(shaggy, sturdy, no nonsense – just like the API)*
 
 ## The Pain
