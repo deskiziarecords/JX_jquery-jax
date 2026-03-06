@@ -64,6 +64,7 @@ class JX:
         else:
             new_fn = lambda x: fn(prev(x))
 
+        
         new_jx = JX(self.data, new_fn, f"{self.name}→{label}")
         if getattr(self, "_is_vmapped", False):
             new_jx._set_vmap(self._in_axes, self._out_axes)
