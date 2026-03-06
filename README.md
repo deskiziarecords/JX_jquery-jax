@@ -6,7 +6,7 @@
 
 > Built because I needed simple chains without the ceremony. Yaks don't do boilerplate.
 
-![YAKJAX mascot – geometric yak with JAX branding](path/to/your-geometric-yak-with-JAX.png)  
+![YAKJAX mascot – geometric yak with JAX branding](https://github.com/deskiziarecords/YAKJAX/blob/main/YAKJAX.jpg)  
 *(shaggy, sturdy, no nonsense – just like the API)*
 
 ## The Pain
