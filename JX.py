@@ -63,6 +63,7 @@ class JX:
             new_fn = lambda x: jax.pmap(fn)(prev(x))
         else:
             new_fn = lambda x: fn(prev(x))
+
         
         new_jx = JX(self.data, new_fn, f"{self.name}→{label}")
         if getattr(self, "_is_vmapped", False):
